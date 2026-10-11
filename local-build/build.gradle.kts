@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -20,7 +21,7 @@ file(morpheJar).let { jar ->
         logger.lifecycle("Downloading $url")
         jar.parentFile.mkdirs()
         val partial = File(jar.path + ".part")
-        java.net.URI(url).toURL().openStream().use { input ->
+        URI(url).toURL().openStream().use { input ->
             partial.outputStream().use { input.copyTo(it) }
         }
         partial.renameTo(jar)
