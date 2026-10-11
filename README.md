@@ -29,6 +29,11 @@ Beim Kalender-Export steht im Termin nicht mehr nur, *dass* Müll rausgestellt w
 In den Einstellungen der App gibt es unter „Müllkalender bewerten“ den neuen Punkt
 **Extra Einstellungen (patched)** mit dem Schalter **Tonnenart im Kalender anzeigen** (standardmäßig an).
 
+**Keine doppelten Termine:** Beim Export löscht der Patch zuerst die Müllkalender-Termine, die für diese Straße
+im gewählten Kalender schon vorhanden sind (ab heute bis zum Ende des Export-Zeitraums). Das gilt auch für
+Termine, die noch mit der ungepatchten App exportiert wurden. Vergangene Termine, andere Kalender und
+eigene Termine bleiben unverändert.
+
 ## 📄 Lizenz
 
 GPLv3, siehe [LICENSE](LICENSE).
