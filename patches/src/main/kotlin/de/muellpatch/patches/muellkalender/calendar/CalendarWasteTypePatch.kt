@@ -1,16 +1,21 @@
 package de.muellpatch.patches.muellkalender.calendar
 
 import app.morphe.patcher.patch.PatchException
-import app.morphe.patcher.patch.ResourcePatchContext
 import app.morphe.patcher.patch.rawResourcePatch
 import de.muellpatch.patches.muellkalender.shared.Constants.COMPATIBILITY_MUELLKALENDER
+import de.muellpatch.patches.muellkalender.shared.copyScript
+import de.muellpatch.patches.muellkalender.shared.findMatchingBrace
+import de.muellpatch.patches.muellkalender.shared.injectScript
+import de.muellpatch.patches.muellkalender.shared.mainBundle
+import de.muellpatch.patches.muellkalender.shared.settingsPagePatch
+import java.io.File
 
 /*
  * Müllkalender is a Capacitor/Ionic app: the whole UI and the calendar export are
  * implemented in the Angular bundle under assets/public, the Java side only hosts the
  * WebView and the cordova-plugin-calendar bridge. Therefore this patch only touches web assets:
  *
- * 1. index.html          -> loads the patch helper script (settings page + title logic).
+ * 1. index.html          -> loads the patch helper script (title logic, settings section).
  * 2. main.<hash>.js      -> ReminderDatesFactory.buildByOption(street, option):
  *                           attaches the PickupDay (date + tours) to each created reminder.
  * 3. main.<hash>.js      -> CalendarService.add(calendar, street, reminder):
@@ -26,9 +31,7 @@ import de.muellpatch.patches.muellkalender.shared.Constants.COMPATIBILITY_MUELLK
  * unchanged, which is exactly the original behavior.
  */
 
-private const val WEB_ROOT = "assets/public"
 private const val HELPER_SCRIPT = "morphe-calendar-waste-type.js"
-private const val HELPER_RESOURCE = "/muellkalender/$HELPER_SCRIPT"
 private const val HELPER_GLOBAL = "window.morpheWasteType"
 
 // ReminderDatesFactory.buildByOption(street, option) { return street.nextPickupDaysUntil(option.endTime).map(pickupDay => { ... }) }
@@ -53,41 +56,17 @@ val calendarWasteTypePatch = rawResourcePatch(
 ) {
     compatibleWith(COMPATIBILITY_MUELLKALENDER)
 
+    dependsOn(settingsPagePatch)
+
     execute {
-        val mainBundle = injectHelperScript()
-        patchMainBundle(mainBundle)
-        copyHelperScript()
+        patchMainBundle(mainBundle())
+        copyScript(HELPER_SCRIPT)
+        injectScript(HELPER_SCRIPT)
     }
 }
 
-/**
- * Adds the helper script to index.html (as a classic script, so it runs before the
- * deferred Angular module scripts) and returns the path of the main bundle.
- */
-private fun ResourcePatchContext.injectHelperScript(): String {
-    val indexFile = get("$WEB_ROOT/index.html")
-    val html = indexFile.readText()
-
-    val mainBundle = Regex("""<script[^>]*\ssrc="(main[^"]*\.js)"""").find(html)?.groupValues?.get(1)
-        ?: throw PatchException("Could not find the main bundle script in index.html")
-
-    if (!html.contains(HELPER_SCRIPT)) {
-        val tag = """<script src="$HELPER_SCRIPT"></script>"""
-        val bodyStart = html.indexOf("<body")
-        val firstScript = html.indexOf("<script", maxOf(bodyStart, 0))
-        val patched = when {
-            bodyStart >= 0 && firstScript >= 0 -> html.substring(0, firstScript) + tag + html.substring(firstScript)
-            html.contains("</body>") -> html.replace("</body>", "$tag</body>")
-            else -> throw PatchException("Could not find a place to inject the helper script into index.html")
-        }
-        indexFile.writeText(patched)
-    }
-
-    return "$WEB_ROOT/$mainBundle"
-}
-
-private fun ResourcePatchContext.patchMainBundle(path: String) {
-    val file = get(path)
+private fun patchMainBundle(file: File) {
+    val path = file.name
     var js = file.readText()
 
     if (js.contains(HELPER_GLOBAL)) return // Already patched.
@@ -150,56 +129,4 @@ private fun ResourcePatchContext.patchMainBundle(path: String) {
     // endregion
 
     file.writeText(js)
-}
-
-private fun ResourcePatchContext.copyHelperScript() {
-    val script = object {}.javaClass.getResourceAsStream(HELPER_RESOURCE)
-        ?.use { it.readBytes() }
-        ?: throw PatchException("Missing bundled resource $HELPER_RESOURCE")
-
-    get("$WEB_ROOT/$HELPER_SCRIPT").apply {
-        parentFile.mkdirs()
-        writeBytes(script)
-    }
-}
-
-/**
- * Returns the index of the brace closing the one at [openIndex].
- * String and template literals are skipped, template substitutions are followed.
- */
-private fun findMatchingBrace(js: String, openIndex: Int): Int {
-    // Each entry is either '{' (code block / template substitution) or '`' (template literal).
-    val stack = ArrayDeque<Char>()
-    var i = openIndex
-
-    while (i < js.length) {
-        val c = js[i]
-        if (stack.lastOrNull() == '`') {
-            when {
-                c == '\\' -> i++
-                c == '`' -> stack.removeLast()
-                c == '$' && js.getOrNull(i + 1) == '{' -> {
-                    stack.addLast('{')
-                    i++
-                }
-            }
-        } else when (c) {
-            '"', '\'' -> {
-                i++
-                while (i < js.length && js[i] != c) {
-                    if (js[i] == '\\') i++
-                    i++
-                }
-            }
-            '`' -> stack.addLast('`')
-            '{' -> stack.addLast('{')
-            '}' -> {
-                stack.removeLast()
-                if (stack.isEmpty()) return i
-            }
-        }
-        i++
-    }
-
-    throw PatchException("Unbalanced braces after index $openIndex")
 }

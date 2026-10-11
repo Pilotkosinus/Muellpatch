@@ -8,7 +8,7 @@
  * - replaceEvents(calendar, street, option, addEvents): called by the patched
  *   CalendarService.addByStreet, deletes the events already exported for the street
  *   (by the unpatched or patched app) before the export runs, so no event is duplicated.
- * - Adds "Extra Einstellungen (patched)" below "Müllkalender bewerten" in the settings.
+ * - Adds the "Kalenderexport" section to the "Extra Einstellungen (patched)" page (morphe-settings.js).
  */
 (function () {
     'use strict';
@@ -17,11 +17,6 @@
     var PICKUP_DAY_KEY = '__morphePickupDay';
     var STREET_KEY = '__morpheStreet';
     var TYPE_SEPARATOR = ' – ';
-
-    var SETTINGS_PAGE = 'app-settings';
-    var ANCHOR_ITEM_TEXT ='Müllkalender bewerten';
-    var ENTRY_MARKER = 'data-morphe-patch-entry';
-    var PAGE_MARKER = 'data-morphe-patch-page';
 
     // region Preference
 
@@ -238,139 +233,20 @@
 
     // endregion
 
-    // region Settings entry
+    // region Settings section
 
-    function findAnchorItem() {
-        // The home page has a "Müllkalender bewerten" entry as well, only use the settings page.
-        var items = document.querySelectorAll(SETTINGS_PAGE + ' ion-list > ion-item');
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].textContent.indexOf(ANCHOR_ITEM_TEXT) !== -1) return items[i];
+    (window.morpheSettingsSections = window.morpheSettingsSections || []).push({
+        order: 10,
+        render: function (container) {
+            var ui = window.morpheSettings;
+            container.innerHTML = ui.sectionHtml('Kalenderexport', [
+                ui.toggleItemHtml('calendar-waste-type', 'Tonnenart im Kalender anzeigen',
+                    'Fügt beim Kalenderexport die Müllart(en) mit Tonnenfarbe zum Titel des Termins hinzu.')
+            ], 'Beim Export werden bereits vorhandene Müllkalender-Termine der Straße im gewählten Kalender ' +
+                '(ab heute) ersetzt, damit keine Termine doppelt sind.');
+            ui.bindToggle(container, 'calendar-waste-type', isEnabled(), setEnabled);
         }
-        return null;
-    }
-
-    function injectSettingsEntry() {
-        var anchor = findAnchorItem();
-        if (!anchor || anchor.parentNode.querySelector('[' + ENTRY_MARKER + ']')) return;
-
-        // Clone the neighbor entry so layout, arrow icon, ripple and scoped styles are identical.
-        var entry = anchor.cloneNode(true);
-        entry.setAttribute(ENTRY_MARKER, '');
-
-        var title = entry.querySelector('.title');
-        var meta = entry.querySelector('.meta');
-        if (title) {
-            title.textContent = 'Extra Einstellungen (patched)';
-            if (meta) meta.textContent = 'Zusätzliche Optionen des Morphe-Patches';
-        } else {
-            var label = entry.querySelector('ion-label');
-            if (label) label.textContent = 'Extra Einstellungen (patched)';
-        }
-
-        entry.addEventListener('click', openSettingsPage);
-        anchor.parentNode.insertBefore(entry, anchor.nextSibling);
-    }
-
-    var injectScheduled = false;
-
-    function scheduleInject() {
-        if (injectScheduled) return;
-        injectScheduled = true;
-        window.requestAnimationFrame(function () {
-            injectScheduled = false;
-            injectSettingsEntry();
-        });
-    }
-
-    // endregion
-
-    // region Settings page
-
-    var PAGE_HTML =
-        '<ion-header>' +
-        '  <ion-toolbar>' +
-        '    <ion-buttons slot="end"><span class="close-button"></span></ion-buttons>' +
-        '    <ion-title>Extra Einstellungen</ion-title>' +
-        '  </ion-toolbar>' +
-        '</ion-header>' +
-        '<ion-content class="ion-padding lightgray-content">' +
-        '  <section>' +
-        '    <div class="card-list-header"><h1>Kalenderexport</h1></div>' +
-        '    <ion-card class="list">' +
-        '      <ion-list>' +
-        '        <ion-item class="ion-no-padding morphe-toggle-item" lines="none">' +
-        '          <ion-label class="ion-text-wrap">' +
-        '            <div class="label-wrapper">' +
-        '              <span class="title">Tonnenart im Kalender anzeigen</span>' +
-        '              <span class="meta">Fügt beim Kalenderexport die Müllart(en) mit Tonnenfarbe zum Titel des Termins hinzu.</span>' +
-        '            </div>' +
-        '          </ion-label>' +
-        '          <ion-toggle slot="end" aria-label="Tonnenart im Kalender anzeigen"' +
-        '                      style="padding-inline-end: 16px"></ion-toggle>' +
-        '        </ion-item>' +
-        '      </ion-list>' +
-        '    </ion-card>' +
-        '    <div class="card-description">' +
-        '      Diese Einstellungen stammen aus einem Morphe-Patch und sind nicht Teil der Original-App.' +
-        '      Beim Export werden bereits vorhandene Müllkalender-Termine der Straße im gewählten Kalender' +
-        '      (ab heute) ersetzt, damit keine Termine doppelt sind.' +
-        '    </div>' +
-        '  </section>' +
-        '</ion-content>';
-
-    function closeButtonText() {
-        var original = document.querySelector('ion-header .close-button');
-        var text = original && original.textContent.trim();
-        return text || 'Schließen';
-    }
-
-    function openSettingsPage() {
-        var existing = document.querySelectorAll('ion-modal[' + PAGE_MARKER + ']');
-        for (var i = 0; i < existing.length; i++) {
-            if (existing[i].classList.contains('overlay-hidden')) existing[i].remove();
-            else return; // Already open.
-        }
-
-        var modal = document.createElement('ion-modal');
-        modal.setAttribute(PAGE_MARKER, '');
-
-        var page = document.createElement('div');
-        page.className = 'ion-page';
-        page.innerHTML = PAGE_HTML;
-        modal.appendChild(page);
-
-        var close = page.querySelector('.close-button');
-        close.textContent = closeButtonText();
-        close.addEventListener('click', function () {
-            modal.dismiss();
-        });
-
-        var toggle = page.querySelector('ion-toggle');
-        toggle.checked = isEnabled();
-        toggle.addEventListener('ionChange', function (event) {
-            setEnabled(!!event.detail.checked);
-        });
-        // Tapping the text toggles as well.
-        page.querySelector('.morphe-toggle-item').addEventListener('click', function (event) {
-            if (event.target.closest && event.target.closest('ion-toggle')) return;
-            toggle.checked = !toggle.checked;
-            setEnabled(toggle.checked);
-        });
-
-        modal.addEventListener('ionModalDidDismiss', function () {
-            // Ionic moves inline modals back to their original parent after this event,
-            // so remove the element in the next task.
-            setTimeout(function () {
-                modal.remove();
-            }, 0);
-        });
-
-        (document.querySelector('ion-app') || document.body).appendChild(modal);
-        var ready = modal.componentOnReady ? modal.componentOnReady() : Promise.resolve();
-        ready.then(function () {
-            return modal.present();
-        });
-    }
+    });
 
     // endregion
 
@@ -382,10 +258,5 @@
             isEnabled: isEnabled
         }),
         enumerable: false
-    });
-
-    new MutationObserver(scheduleInject).observe(document.documentElement, {
-        childList: true,
-        subtree: true
     });
 })();
