@@ -19,12 +19,16 @@ https://github.com/Pilotkosinus/Muellpatch
 
 ### Calendar waste type
 
-Beim Kalender-Export steht im Termin nicht mehr nur, *dass* Müll rausgestellt werden muss, sondern *welche Tonne*:
+Beim Kalender-Export steht im Termin nicht mehr nur, *dass* Müll rausgestellt werden muss, sondern *welche Tonne*,
+inklusive Tonnenfarbe:
 
 | | Termintitel |
 |---|---|
-| Original | `Müllabholung (Hervester Str. 70-208)` |
-| Gepatcht | `Müllabholung – Bioabfall, Restabfall (Hervester Str. 70-208)` |
+| Original | `Müllabholung (Musterstraße 1)` |
+| Gepatcht | `Müllabholung – Wertstoffe 🟡 (Musterstraße 1)` |
+| Gepatcht, mehrere Tonnen | `Müllabholung – Bioabfall 🟤, Restabfall ⚫ (Musterstraße 1)` |
+
+Farben: ⚫ schwarz, 🔵 blau, 🟤 braun, 🟡 gelb (so wie die App die Tonnen selbst einfärbt).
 
 In den Einstellungen der App gibt es unter „Müllkalender bewerten“ den neuen Punkt
 **Extra Einstellungen (patched)** mit dem Schalter **Tonnenart im Kalender anzeigen** (standardmäßig an).
@@ -60,7 +64,7 @@ JavaScript unter `assets/public` der APK, die Java-Seite hostet nur die WebView 
 |---|---|
 | `assets/public/index.html` | lädt `morphe-calendar-waste-type.js` |
 | `assets/public/main.<hash>.js` | `ReminderDatesFactory.buildByOption`: hängt den `PickupDay` (Datum + Touren) an jede Erinnerung |
-| `assets/public/main.<hash>.js` | `CalendarService.add`: Titel für `createEventWithOptions` kommt vom Helfer-Script |
+| `assets/public/main.<hash>.js` | `CalendarService.add`: Titel für `createEventWithOptions` kommt vom Helfer-Script (Tonnenart aus `Tour.label`, Farbe aus `Tour.color`) |
 | `assets/public/main.<hash>.js` | `CalendarService.addByStreet`: Helfer löscht vor dem Export die vorhandenen Termine der Straße im Ziel-Kalender |
 | `assets/public/morphe-calendar-waste-type.js` | neu: Titel-Logik, Ersetzen alter Termine, Einstellungsseite |
 

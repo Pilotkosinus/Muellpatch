@@ -1,7 +1,7 @@
 /*
  * Morphe patch "Calendar waste type" for Müllkalender (de.sector27.muellkalender).
  *
- * - calendarTitle(reminder): title for exported calendar events, including the waste type(s)
+ * - calendarTitle(reminder): title for exported calendar events, including the waste type(s) and bin color(s)
  *   of the pickup day. Returns reminder.title unchanged if the switch is off.
  * - tag(reminder, pickupDay, street): called by the patched ReminderDatesFactory.buildByOption
  *   to remember which PickupDay/street a reminder belongs to (non-enumerable, never serialized).
@@ -67,13 +67,34 @@
         return reminder;
     }
 
-    /** Waste type names of a PickupDay as provided by the app (Tour.label), without duplicates. */
+    // Tour.color values (the app ships bin images for black, blue, brown and yellow).
+    var COLOR_EMOJIS = {
+        black: '⚫',
+        blue: '🔵',
+        brown: '🟤',
+        yellow: '🟡',
+        green: '🟢',
+        red: '🔴',
+        orange: '🟠',
+        purple: '🟣',
+        white: '⚪'
+    };
+
+    function colorEmoji(color) {
+        if (typeof color !== 'string') return '';
+        return COLOR_EMOJIS[color.trim().toLowerCase()] || '';
+    }
+
+    /**
+     * Waste types of a PickupDay as provided by the app (Tour.label + Tour.color emoji),
+     * without duplicates, e.g. "Wertstoffe 🟡".
+     */
     function wasteTypes(pickupDay) {
         var tours = pickupDay && pickupDay.tours;
         if (!tours || typeof tours.length !== 'number') return [];
 
         var seen = {};
-        var names = [];
+        var types = [];
         for (var i = 0; i < tours.length; i++) {
             var label = tours[i] && tours[i].label;
             if (typeof label !== 'string') continue;
@@ -81,11 +102,13 @@
             var key = label.toLowerCase();
             if (!label || seen[key]) continue;
             seen[key] = true;
-            names.push(label);
+            types.push({label: label, emoji: colorEmoji(tours[i].color)});
         }
         // Same ordering as the app's own PickupDay.names getter (alphabetical).
-        return names.sort(function (a, b) {
-            return a.localeCompare(b, 'de');
+        return types.sort(function (a, b) {
+            return a.label.localeCompare(b.label, 'de');
+        }).map(function (type) {
+            return type.emoji ? type.label + ' ' + type.emoji : type.label;
         });
     }
 
@@ -279,7 +302,7 @@
         '          <ion-label class="ion-text-wrap">' +
         '            <div class="label-wrapper">' +
         '              <span class="title">Tonnenart im Kalender anzeigen</span>' +
-        '              <span class="meta">Fügt beim Kalenderexport die Müllart(en) zum Titel des Termins hinzu.</span>' +
+        '              <span class="meta">Fügt beim Kalenderexport die Müllart(en) mit Tonnenfarbe zum Titel des Termins hinzu.</span>' +
         '            </div>' +
         '          </ion-label>' +
         '          <ion-toggle slot="end" aria-label="Tonnenart im Kalender anzeigen"' +

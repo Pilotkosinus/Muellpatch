@@ -45,8 +45,8 @@ private val addByStreetRegex = Regex("""addByStreet\(([\w$]+),([\w$]+),([\w$]+)\
 @Suppress("unused")
 val calendarWasteTypePatch = rawResourcePatch(
     name = "Calendar waste type",
-    description = "Adds the waste type(s) of the pickup day to the title of exported calendar events " +
-        "(e.g. \"Müllabholung – Gelbe Tonne (Street)\") and adds an \"Extra Einstellungen (patched)\" " +
+    description = "Adds the waste type(s) and bin color(s) of the pickup day to the title of exported calendar events " +
+        "(e.g. \"Müllabholung – Wertstoffe 🟡 (Street)\") and adds an \"Extra Einstellungen (patched)\" " +
         "page with a switch to turn this off. Events already exported for the street are replaced " +
         "instead of duplicated.",
     default = true,
